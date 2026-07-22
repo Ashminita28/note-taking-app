@@ -1,0 +1,41 @@
+{
+  "name": "@note-app/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/server.js",
+    "lint": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@note-app/shared": "workspace:*",
+    "@prisma/client": "6.6.0",
+    "bcrypt": "5.1.1",
+    "cors": "2.8.5",
+    "express": "5.1.0",
+    "express-rate-limit": "7.5.0",
+    "helmet": "8.0.0",
+    "jsonwebtoken": "9.0.2",
+    "zod": "3.24.4"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "3.2.1",
+    "@types/bcrypt": "5.0.2",
+    "@types/cors": "2.8.17",
+    "@types/express": "5.0.0",
+    "@types/jsonwebtoken": "9.0.9",
+    "@types/node": "22.15.0",
+    "@types/supertest": "6.0.2",
+    "cross-env": "7.0.3",
+    "prisma": "6.6.0",
+    "supertest": "7.1.0",
+    "tsx": "4.19.0",
+    "typescript": "5.9.2",
+    "vitest": "3.2.1"
+  }
+}
