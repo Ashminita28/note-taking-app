@@ -5,7 +5,7 @@ Before writing code, read:
 2. docs/FRS.md (Section 25.3 per-ticket scope for $ARGUMENTS)
 3. docs/SDS.md (Relevant technical specs for $ARGUMENTS)
 4. Domain CLAUDE.md files
-5. openspec/tickets/$ARGUMENTS/proposal.md
+5. openspec/tickets/$ARGUMENTS/spec.md
 6. openspec/tickets/$ARGUMENTS/plan.md
 7. openspec/tickets/$ARGUMENTS/tasks.md
 

@@ -1,7 +1,7 @@
 Break down into tasks for: $ARGUMENTS
 
 Steps:
-1. Read: openspec/tickets/$ARGUMENTS/proposal.md
+1. Read: openspec/tickets/$ARGUMENTS/spec.md
 2. Read: openspec/tickets/$ARGUMENTS/plan.md
 3. Generate sequenced task checklist:
    - Phase 1: Foundation (shared types, DB migrations, package setups)

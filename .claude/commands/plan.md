@@ -1,7 +1,7 @@
 Create technical implementation plan for: $ARGUMENTS
 
 Steps:
-1. Read: openspec/tickets/$ARGUMENTS/proposal.md
+1. Read: openspec/tickets/$ARGUMENTS/spec.md
 2. Read: Relevant sections in docs/SDS.md (API contracts, DB schema, data fetching, state management)
 3. Read: Relevant sections in docs/UX.md (Screen specs, design system tokens)
 4. Read: AGENTS.md + domain CLAUDE.md files
