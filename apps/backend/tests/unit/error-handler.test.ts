@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import express from 'express';
 import supertest from 'supertest';
 import { errorHandler } from '../../src/middleware/error-handler';
+import { AppError, ValidationError } from '../../src/errors/app-error';
 
 describe('errorHandler', () => {
   it('returns the standard 500 envelope for unhandled errors', async () => {
@@ -21,5 +22,40 @@ describe('errorHandler', () => {
         details: [],
       },
     });
+  });
+
+  it('maps a thrown AppError to its statusCode/code/message/details', async () => {
+    const app = express();
+    app.get('/conflict', () => {
+      throw new AppError('EMAIL_ALREADY_EXISTS', 'An account with this email already exists.');
+    });
+    app.use(errorHandler);
+
+    const response = await supertest(app).get('/conflict');
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error: {
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: 'An account with this email already exists.',
+        details: [],
+      },
+    });
+  });
+
+  it('includes field-level details for a ValidationError', async () => {
+    const app = express();
+    app.get('/invalid', () => {
+      throw new ValidationError([{ field: 'email', message: 'Invalid email format.' }]);
+    });
+    app.use(errorHandler);
+
+    const response = await supertest(app).get('/invalid');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(response.body.error.details).toEqual([
+      { field: 'email', message: 'Invalid email format.' },
+    ]);
   });
 });
