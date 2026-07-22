@@ -1,5 +1,6 @@
 import type { PrismaClient, User } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import type {
   RegisterRequest,
   LoginRequest,
@@ -9,6 +10,12 @@ import type {
   LoginResponse,
   RefreshResponse,
   LogoutResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  VerifyOtpRequest,
+  VerifyOtpResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
 } from '@note-app/shared';
 import { config } from '../../config/env.js';
 import {
@@ -16,8 +23,20 @@ import {
   InvalidCredentialsError,
   InvalidRefreshTokenError,
   RefreshTokenExpiredError,
+  InvalidOtpError,
+  OtpExpiredError,
+  InvalidResetTokenError,
+  ResetTokenExpiredError,
+  PasswordSameAsCurrentError,
 } from './auth.errors.js';
-import { signAccessToken, generateRefreshToken, hashToken } from './auth.tokens.js';
+import {
+  signAccessToken,
+  generateRefreshToken,
+  hashToken,
+  generateOtp,
+  signResetToken,
+  verifyResetToken,
+} from './auth.tokens.js';
 
 function toUserProfile(user: User): UserProfile {
   return { id: user.id, name: user.name, email: user.email };
@@ -112,4 +131,116 @@ export async function getUserProfile(
 ): Promise<{ user: UserProfile }> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   return { user: toUserProfile(user) };
+}
+
+const GENERIC_RESET_MESSAGE = 'If an account exists for that email, a reset code has been sent.';
+
+function logSimulatedOtpEmail(email: string, otp: string): void {
+  console.log(
+    [
+      '══════════════════════════════════════════',
+      '📧 SIMULATED EMAIL',
+      `To: ${email}`,
+      'Subject: Password Reset OTP',
+      `Body: Your OTP is: ${otp}. Expires in ${config.OTP_EXPIRY_MINUTES} minutes.`,
+      '══════════════════════════════════════════',
+    ].join('\n'),
+  );
+}
+
+export async function requestPasswordReset(
+  prisma: PrismaClient,
+  input: ForgotPasswordRequest,
+): Promise<ForgotPasswordResponse> {
+  const user = await prisma.user.findUnique({ where: { email: input.email } });
+
+  // Email-enumeration prevention (FR-PWD-001 AF-1): no DB write and no log for an unknown email,
+  // but the response is identical either way.
+  if (user) {
+    // Re-request invalidation (FR-PWD-001 AF-2 / BR-010): supersede any still-active prior OTP.
+    await prisma.passwordResetOtp.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
+    const { otp, otpHash, expiresAt } = generateOtp();
+    await prisma.passwordResetOtp.create({ data: { userId: user.id, otpHash, expiresAt } });
+
+    logSimulatedOtpEmail(user.email, otp);
+  }
+
+  return { message: GENERIC_RESET_MESSAGE };
+}
+
+export async function verifyOtp(
+  prisma: PrismaClient,
+  input: VerifyOtpRequest,
+): Promise<VerifyOtpResponse> {
+  const user = await prisma.user.findUnique({ where: { email: input.email } });
+  if (!user) {
+    // Same generic error as "wrong OTP" (FR-PWD-002 EC-3) — never reveals whether the email exists.
+    throw new InvalidOtpError();
+  }
+
+  const otpHash = hashToken(input.otp);
+  const record = await prisma.passwordResetOtp.findFirst({
+    where: { userId: user.id, otpHash, used: false },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!record) {
+    throw new InvalidOtpError();
+  }
+
+  // Hash match is checked before expiry (spec Scenario 12) so a correct-but-expired OTP gets
+  // OTP_EXPIRED rather than the generic INVALID_OTP.
+  if (record.expiresAt.getTime() < Date.now()) {
+    throw new OtpExpiredError();
+  }
+
+  await prisma.passwordResetOtp.update({ where: { id: record.id }, data: { used: true } });
+
+  const resetToken = signResetToken({ userId: user.id, otpId: record.id });
+  return { resetToken };
+}
+
+export async function resetPassword(
+  prisma: PrismaClient,
+  input: ResetPasswordRequest,
+): Promise<ResetPasswordResponse> {
+  let payload;
+  try {
+    payload = verifyResetToken(input.resetToken);
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      throw new ResetTokenExpiredError();
+    }
+    throw new InvalidResetTokenError();
+  }
+
+  const record = await prisma.passwordResetOtp.findUnique({ where: { id: payload.otpId } });
+  if (!record || record.userId !== payload.userId || record.resetTokenUsed) {
+    throw new InvalidResetTokenError();
+  }
+
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: payload.userId } });
+
+  const isSameAsCurrent = await bcrypt.compare(input.newPassword, user.passwordHash);
+  if (isSameAsCurrent) {
+    throw new PasswordSameAsCurrentError();
+  }
+
+  const passwordHash = await bcrypt.hash(input.newPassword, config.BCRYPT_ROUNDS);
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
+    prisma.passwordResetOtp.update({
+      where: { id: record.id },
+      data: { resetTokenUsed: true },
+    }),
+    // BR-013: force logout from every device, not just the single active session (contrast with login).
+    prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+  ]);
+
+  return { message: 'Password reset successful. Please log in with your new password.' };
 }

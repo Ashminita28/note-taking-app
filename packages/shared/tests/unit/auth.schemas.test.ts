@@ -6,6 +6,10 @@ import {
   RefreshRequestSchema,
   LogoutRequestSchema,
   AccessTokenPayloadSchema,
+  ForgotPasswordRequestSchema,
+  VerifyOtpRequestSchema,
+  ResetPasswordRequestSchema,
+  ResetTokenPayloadSchema,
 } from '../../src/schemas/auth.schemas';
 
 describe('RegisterRequestSchema', () => {
@@ -138,5 +142,101 @@ describe('AccessTokenPayloadSchema', () => {
         exp: 1_700_000_900,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('ForgotPasswordRequestSchema', () => {
+  it('accepts a valid email', () => {
+    expect(ForgotPasswordRequestSchema.safeParse({ email: 'ada@example.com' }).success).toBe(
+      true,
+    );
+  });
+
+  it('normalizes email to lowercase', () => {
+    const result = ForgotPasswordRequestSchema.parse({ email: 'Ada@Example.COM' });
+    expect(result.email).toBe('ada@example.com');
+  });
+
+  it('rejects an invalid email format', () => {
+    expect(ForgotPasswordRequestSchema.safeParse({ email: 'not-an-email' }).success).toBe(false);
+  });
+
+  it('rejects a missing email', () => {
+    expect(ForgotPasswordRequestSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('VerifyOtpRequestSchema', () => {
+  const valid = { email: 'ada@example.com', otp: '123456' };
+
+  it('accepts a valid 6-digit OTP', () => {
+    expect(VerifyOtpRequestSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects an OTP with fewer than 6 digits', () => {
+    expect(VerifyOtpRequestSchema.safeParse({ ...valid, otp: '1234' }).success).toBe(false);
+  });
+
+  it('rejects an OTP with more than 6 digits', () => {
+    expect(VerifyOtpRequestSchema.safeParse({ ...valid, otp: '1234567' }).success).toBe(false);
+  });
+
+  it('rejects a non-numeric OTP', () => {
+    expect(VerifyOtpRequestSchema.safeParse({ ...valid, otp: 'abcdef' }).success).toBe(false);
+  });
+
+  it('rejects a missing otp', () => {
+    expect(VerifyOtpRequestSchema.safeParse({ email: valid.email }).success).toBe(false);
+  });
+});
+
+describe('ResetPasswordRequestSchema', () => {
+  const valid = { resetToken: 'a-reset-token', newPassword: 'Str0ng!Pass' };
+
+  it('accepts a valid reset payload', () => {
+    expect(ResetPasswordRequestSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects an empty reset token', () => {
+    expect(ResetPasswordRequestSchema.safeParse({ ...valid, resetToken: '' }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects a weak new password', () => {
+    expect(ResetPasswordRequestSchema.safeParse({ ...valid, newPassword: 'weak' }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects a missing resetToken', () => {
+    expect(
+      ResetPasswordRequestSchema.safeParse({ newPassword: valid.newPassword }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ResetTokenPayloadSchema', () => {
+  const valid = {
+    userId: '9d2a13e0-4a2e-4b1a-9c3e-2f6f6b5e1a01',
+    otpId: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+    purpose: 'password_reset' as const,
+    iat: 1_700_000_000,
+    exp: 1_700_000_900,
+  };
+
+  it('accepts a valid decoded reset-token payload', () => {
+    expect(ResetTokenPayloadSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects a payload with the wrong purpose', () => {
+    expect(
+      ResetTokenPayloadSchema.safeParse({ ...valid, purpose: 'access_token' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a payload missing otpId', () => {
+    const { otpId: _otpId, ...rest } = valid;
+    expect(ResetTokenPayloadSchema.safeParse(rest).success).toBe(false);
   });
 });

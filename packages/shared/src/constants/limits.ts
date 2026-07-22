@@ -8,6 +8,8 @@ export const EMAIL_MAX_LENGTH = 255;
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
+export const OTP_LENGTH = 6;
+
 export const NOTE_TITLE_MAX_LENGTH = 255;
 export const NOTE_CONTENT_MAX_SIZE_BYTES = 500 * 1024;
 

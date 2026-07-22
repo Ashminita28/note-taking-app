@@ -42,3 +42,36 @@ export class RefreshTokenExpiredError extends AppError {
     super(ERROR_CODES.REFRESH_TOKEN_EXPIRED, 'Refresh token expired. Please log in again.');
   }
 }
+
+export class InvalidOtpError extends AppError {
+  constructor() {
+    super(ERROR_CODES.INVALID_OTP, 'The code you entered is incorrect.');
+  }
+}
+
+export class OtpExpiredError extends AppError {
+  constructor() {
+    super(ERROR_CODES.OTP_EXPIRED, 'This code has expired. Request a new one.');
+  }
+}
+
+export class InvalidResetTokenError extends AppError {
+  constructor() {
+    super(ERROR_CODES.INVALID_RESET_TOKEN, 'Invalid password reset link.');
+  }
+}
+
+export class ResetTokenExpiredError extends AppError {
+  constructor() {
+    super(ERROR_CODES.RESET_TOKEN_EXPIRED, 'Password reset link expired. Request a new one.');
+  }
+}
+
+export class PasswordSameAsCurrentError extends AppError {
+  constructor() {
+    super(
+      ERROR_CODES.PASSWORD_SAME_AS_CURRENT,
+      'New password must be different from the current.',
+    );
+  }
+}
