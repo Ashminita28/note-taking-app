@@ -1759,15 +1759,7 @@ Each ticket below defines its exact scope, dependencies, and acceptance criteria
    - Configure Playwright for E2E tests
    - Verify `pnpm build`, `pnpm lint --max-warnings 0`, and `pnpm test` all pass
 
-7. **AI Development Infrastructure**
-   - Generate `AGENTS.md` at root (from FRS + SDS + codebase)
-   - Generate root `CLAUDE.md` with quality gates, permission model, context management
-   - Generate `apps/backend/CLAUDE.md` with backend-specific rules
-   - Generate `apps/frontend/CLAUDE.md` with frontend-specific rules
-   - Generate `packages/shared/CLAUDE.md` with shared package rules
-   - Initialize OpenSpec (`openspec init`) and fill `openspec/project.md`
-   - Create 7 slash commands in `.claude/commands/` (start, spec, plan, tasks, implement, review, pr)
-   - Create 2 sub-agents in `.claude/agents/` (reviewer, test-writer)
+*(Note: AI Development Infrastructure — AGENTS.md, CLAUDE.md files, slash commands, sub-agents, OpenSpec — was bootstrapped in Phase 0 prior to AB-1001 to enable slash command execution).*
 
 **Acceptance Criteria:**
 1. `pnpm install` completes without errors across all workspaces.
@@ -1779,11 +1771,9 @@ Each ticket below defines its exact scope, dependencies, and acceptance criteria
 7. `docker compose up -d` starts PostgreSQL and the database is accessible.
 8. `pnpm db:migrate` runs Prisma migrations successfully, creating all tables.
 9. `pnpm db:generate` generates Prisma client without errors.
-10. All CLAUDE.md and AGENTS.md files exist and are readable.
-11. OpenSpec is initialized with project context.
-12. Husky pre-commit hook triggers on `git commit`.
-13. commitlint rejects non-conventional commit messages.
-14. All packages can import from `@note-app/shared` (or chosen package name).
+10. Husky pre-commit hook triggers on `git commit`.
+11. commitlint rejects non-conventional commit messages.
+12. All packages can import from `@note-app/shared`.
 
 ---
 
