@@ -13,7 +13,8 @@ export default defineConfig({
     coverage: {
       include: ['src/**'],
       // server.ts is a bootstrap entrypoint (starts listening) — nothing to unit test.
-      exclude: ['src/server.ts'],
+      // *.d.ts files are ambient type declarations only — no runtime code to cover.
+      exclude: ['src/server.ts', 'src/**/*.d.ts'],
     },
   },
 });

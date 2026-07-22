@@ -6,9 +6,10 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     coverage: {
       include: ['src/**'],
-      // Stub files (SDS §9.2) are single-line `export {}` placeholders populated by later
-      // tickets (AB-1002, AB-1004, AB-1006–AB-1009) — nothing to unit test yet.
-      exclude: ['src/types/**', 'src/schemas/**', 'src/utils/**'],
+      // Type files (SDS §9.2) are `z.infer` re-exports only — no runtime code to cover.
+      // Remaining stub `export {}` files (schemas/utils not yet populated by later tickets)
+      // have zero coverable statements, so leaving them included is harmless.
+      exclude: ['src/types/**'],
     },
   },
 });
