@@ -5,6 +5,7 @@ import {
   EMAIL_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PASSWORD_MAX_LENGTH,
+  OTP_LENGTH,
 } from '../constants/limits.js';
 import { isStrongPassword } from '../utils/validation.js';
 
@@ -85,6 +86,44 @@ export const MeResponseSchema = z.object({
 export const AccessTokenPayloadSchema = z.object({
   userId: z.string().uuid(),
   email: z.string().email(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+export const ForgotPasswordRequestSchema = z.object({
+  email: emailSchema,
+});
+
+export const ForgotPasswordResponseSchema = z.object({
+  message: z.string(),
+});
+
+export const VerifyOtpRequestSchema = z.object({
+  email: emailSchema,
+  otp: z
+    .string()
+    .length(OTP_LENGTH, `OTP must be exactly ${OTP_LENGTH} digits.`)
+    .regex(/^\d+$/, `OTP must be exactly ${OTP_LENGTH} digits.`),
+});
+
+export const VerifyOtpResponseSchema = z.object({
+  resetToken: z.string(),
+});
+
+export const ResetPasswordRequestSchema = z.object({
+  resetToken: z.string().min(1, 'Reset token is required.'),
+  newPassword: strongPasswordSchema,
+});
+
+export const ResetPasswordResponseSchema = z.object({
+  message: z.string(),
+});
+
+/** Decoded JWT password-reset-token payload shape — validated at runtime after signature verification. */
+export const ResetTokenPayloadSchema = z.object({
+  userId: z.string().uuid(),
+  otpId: z.string().uuid(),
+  purpose: z.literal('password_reset'),
   iat: z.number(),
   exp: z.number(),
 });
