@@ -11,6 +11,7 @@ import { notesRouter } from './modules/notes/notes.router.js';
 import { tagsRouter } from './modules/tags/tags.router.js';
 import { searchRouter } from './modules/search/search.router.js';
 import { shareRouter } from './modules/share/share.router.js';
+import { versionsRouter } from './modules/versions/versions.router.js';
 
 export function createApp(): Express {
   const app = express();
@@ -26,8 +27,9 @@ export function createApp(): Express {
   app.use('/api/tags', tagsRouter);
   app.use('/api/search', searchRouter);
   app.use('/api', shareRouter);
+  app.use('/api/notes', versionsRouter);
 
-  // Further feature routes are mounted here by their owning tickets (AB-1009 onward).
+  // Further feature routes are mounted here by their owning tickets (AB-1010 onward).
 
   app.use(notFoundHandler);
   app.use(errorHandler);

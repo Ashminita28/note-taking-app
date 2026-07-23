@@ -22,6 +22,10 @@ export const SEARCH_QUERY_MAX_LENGTH = 200;
 export const SHARE_EXPIRY_MIN_HOURS = 1;
 export const SHARE_EXPIRY_MAX_HOURS = 720;
 
+export const VERSION_PREVIEW_LENGTH = 200;
+export const VERSION_RETENTION_DAYS = 90;
+export const VERSION_MIN_RETAINED = 10;
+
 export const PAGE_MIN = 1;
 export const PAGE_SIZE_MIN = 1;
 export const PAGE_SIZE_MAX = 100;

@@ -17,11 +17,11 @@ import {
   RecoveryExpiredError,
 } from './notes.errors.js';
 
-const NOTE_WITH_TAGS_INCLUDE = { tags: { include: { tag: true } } } as const;
+export const NOTE_WITH_TAGS_INCLUDE = { tags: { include: { tag: true } } } as const;
 
 type NoteWithTags = Note & { tags: { tag: Tag }[] };
 
-function toNoteResponse(note: NoteWithTags): NoteResponse {
+export function toNoteResponse(note: NoteWithTags): NoteResponse {
   return {
     id: note.id,
     title: note.title,
