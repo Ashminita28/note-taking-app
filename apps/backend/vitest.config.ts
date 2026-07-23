@@ -12,6 +12,7 @@ export default defineConfig({
       DATABASE_URL: 'postgresql://notetaking:notetaking@localhost:5433/notetaking_test',
       JWT_SECRET: 'test-secret-do-not-use-in-production',
       CORS_ORIGIN: 'http://localhost:5173',
+      FRONTEND_URL: 'http://localhost:5173',
     },
     coverage: {
       include: ['src/**'],

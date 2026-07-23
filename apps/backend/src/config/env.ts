@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
   CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN is required'),
+  FRONTEND_URL: z.string().min(1, 'FRONTEND_URL is required'),
   BCRYPT_ROUNDS: z.coerce.number().int().positive().default(12),
   OTP_EXPIRY_MINUTES: z.coerce.number().int().positive().default(10),
   RESET_TOKEN_EXPIRY_MIN: z.coerce.number().int().positive().default(15),
