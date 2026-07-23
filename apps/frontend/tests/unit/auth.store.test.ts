@@ -19,14 +19,15 @@ describe('useAuthStore', () => {
   });
 
   it('sets the user', () => {
-    useAuthStore.getState().setUser({ id: '1' });
+    const user = { id: '1', name: 'Jane Doe', email: 'jane@example.com' };
+    useAuthStore.getState().setUser(user);
 
-    expect(useAuthStore.getState().user).toEqual({ id: '1' });
+    expect(useAuthStore.getState().user).toEqual(user);
   });
 
   it('clears all auth state', () => {
     useAuthStore.getState().setTokens('a', 'b');
-    useAuthStore.getState().setUser({ id: '1' });
+    useAuthStore.getState().setUser({ id: '1', name: 'Jane Doe', email: 'jane@example.com' });
 
     useAuthStore.getState().clearAuth();
 

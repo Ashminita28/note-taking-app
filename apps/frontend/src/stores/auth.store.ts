@@ -1,13 +1,12 @@
 import { create } from 'zustand';
+import type { UserProfile } from '@note-app/shared';
 
-// `user`'s real type (`User` from `@note-app/shared`) lands with AB-1002 — `auth.types.ts` is a
-// stub until then, so this store holds it as `unknown` rather than hand-defining the shape here.
 interface AuthStore {
   accessToken: string | null;
   refreshToken: string | null;
-  user: unknown | null;
+  user: UserProfile | null;
   setTokens: (access: string, refresh: string) => void;
-  setUser: (user: unknown) => void;
+  setUser: (user: UserProfile) => void;
   clearAuth: () => void;
   isAuthenticated: () => boolean;
 }
