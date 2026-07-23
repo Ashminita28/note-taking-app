@@ -2,24 +2,9 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import supertest from 'supertest';
 import { createApp } from '../../src/app';
 import { prisma } from '../../src/config/prisma';
-import { signAccessToken } from '../../src/modules/auth/auth.tokens';
-import { resetNotesTables } from './setup';
+import { resetNotesTables, registerAndLogin } from './setup';
 
 const app = createApp();
-
-/**
- * Creates a user directly via Prisma and signs its access token in-process — notes tests exercise
- * the notes endpoints, not the login flow (AB-1002's concern), and going through the real
- * register/login HTTP endpoints for every one of this suite's users would run the global rate
- * limiter dry well before the suite finishes.
- */
-async function registerAndLogin(email: string): Promise<{ accessToken: string; userId: string }> {
-  const user = await prisma.user.create({
-    data: { name: 'Note Tester', email, passwordHash: 'unused-in-notes-tests' },
-  });
-  const accessToken = signAccessToken({ userId: user.id, email: user.email });
-  return { accessToken, userId: user.id };
-}
 
 async function createTag(userId: string, name: string): Promise<string> {
   const tag = await prisma.tag.create({ data: { userId, name } });
