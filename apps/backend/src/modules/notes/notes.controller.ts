@@ -1,7 +1,19 @@
 import type { Request, Response } from 'express';
-import type { CreateNoteRequest, UpdateNoteRequest, NoteIdParam } from '@note-app/shared';
+import type { CreateNoteRequest, UpdateNoteRequest, NoteIdParam, ListNotesQuery } from '@note-app/shared';
 import { prisma } from '../../config/prisma.js';
-import { createNote, getNote, updateNote, softDeleteNote, restoreNote } from './notes.service.js';
+import {
+  createNote,
+  getNote,
+  updateNote,
+  softDeleteNote,
+  restoreNote,
+  listNotes,
+} from './notes.service.js';
+
+export async function listNotesHandler(req: Request, res: Response): Promise<void> {
+  const result = await listNotes(prisma, req.userId as string, req.validatedQuery as ListNotesQuery);
+  res.status(200).json(result);
+}
 
 export async function createNoteHandler(req: Request, res: Response): Promise<void> {
   const note = await createNote(prisma, req.userId as string, req.body as CreateNoteRequest);

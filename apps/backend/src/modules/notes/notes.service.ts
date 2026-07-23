@@ -1,10 +1,12 @@
-import type { PrismaClient, Note, Tag } from '@prisma/client';
+import type { PrismaClient, Note, Tag, Prisma } from '@prisma/client';
 import type {
   CreateNoteRequest,
   UpdateNoteRequest,
   NoteResponse,
   DeleteNoteResponse,
   RestoreNoteResponse,
+  ListNotesQuery,
+  ListNotesResponse,
 } from '@note-app/shared';
 import { RECOVERY_WINDOW_DAYS } from '@note-app/shared';
 import { sanitizeNoteHtml, extractPlainText } from './notes.content.js';
@@ -193,4 +195,65 @@ export async function restoreNote(
   });
 
   return { note: toNoteResponse(note) };
+}
+
+export async function listNotes(
+  prisma: PrismaClient,
+  userId: string,
+  query: ListNotesQuery,
+): Promise<ListNotesResponse> {
+  const { page, pageSize, sortBy, sortOrder, includeTrashed } = query;
+
+  if (query.tagIds && query.tagIds.length > 0) {
+    const dedupedTagIds = [...new Set(query.tagIds)];
+    const ownedTagIds = await resolveOwnedTagIds(prisma, userId, dedupedTagIds);
+
+    // A note's tags always belong to the same user as the note (AB-1004's tag-resolution
+    // invariant) — a foreign/nonexistent tag id can never match, so short-circuit (Scenario 9).
+    if (ownedTagIds.length !== dedupedTagIds.length) {
+      return { data: [], pagination: { page, pageSize, totalItems: 0, totalPages: 0 } };
+    }
+
+    return listNotesWithWhere(prisma, {
+      userId,
+      deletedAt: includeTrashed ? { not: null } : null,
+      AND: ownedTagIds.map((tagId) => ({ tags: { some: { tagId } } })),
+    }, { page, pageSize, sortBy, sortOrder });
+  }
+
+  return listNotesWithWhere(
+    prisma,
+    { userId, deletedAt: includeTrashed ? { not: null } : null },
+    { page, pageSize, sortBy, sortOrder },
+  );
+}
+
+async function listNotesWithWhere(
+  prisma: PrismaClient,
+  where: Prisma.NoteWhereInput,
+  { page, pageSize, sortBy, sortOrder }: Pick<ListNotesQuery, 'page' | 'pageSize' | 'sortBy' | 'sortOrder'>,
+): Promise<ListNotesResponse> {
+  // Secondary `id asc` sort keeps pagination deterministic when multiple notes tie on `sortBy`.
+  const orderBy: Prisma.NoteOrderByWithRelationInput[] = [{ [sortBy]: sortOrder }, { id: 'asc' }];
+
+  const [notes, totalItems] = await prisma.$transaction([
+    prisma.note.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: NOTE_WITH_TAGS_INCLUDE,
+    }),
+    prisma.note.count({ where }),
+  ]);
+
+  return {
+    data: notes.map(toNoteResponse),
+    pagination: {
+      page,
+      pageSize,
+      totalItems,
+      totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize),
+    },
+  };
 }

@@ -26,6 +26,31 @@ async function createTag(userId: string, name: string): Promise<string> {
   return tag.id;
 }
 
+/**
+ * Creates a note directly via Prisma (not through `POST /api/notes`) so list/sort/filter tests can
+ * control `createdAt`/`updatedAt`/`deletedAt` precisely and avoid burning the global rate limiter's
+ * request budget on setup calls that aren't the thing under test.
+ */
+async function createNoteDirect(
+  userId: string,
+  overrides: {
+    title?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+    deletedAt?: Date | null;
+  } = {},
+): Promise<{ id: string }> {
+  return prisma.note.create({
+    data: {
+      userId,
+      title: overrides.title ?? 'Untitled',
+      ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
+      ...(overrides.updatedAt ? { updatedAt: overrides.updatedAt } : {}),
+      ...(overrides.deletedAt !== undefined ? { deletedAt: overrides.deletedAt } : {}),
+    },
+  });
+}
+
 beforeEach(async () => {
   await resetNotesTables();
 });
@@ -535,6 +560,229 @@ describe('POST /api/notes/:id/restore', () => {
     const res = await supertest(app).post(
       '/api/notes/00000000-0000-4000-8000-000000000000/restore',
     );
+
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('GET /api/notes', () => {
+  it('returns the default page (page 1, size 20, updatedAt desc)', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-default@example.com');
+    const base = new Date('2026-01-01T00:00:00.000Z');
+    await createNoteDirect(userId, { title: 'First', createdAt: base, updatedAt: base });
+    await createNoteDirect(userId, {
+      title: 'Second',
+      createdAt: new Date(base.getTime() + 1000),
+      updatedAt: new Date(base.getTime() + 1000),
+    });
+
+    const res = await supertest(app)
+      .get('/api/notes')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { title: string }) => n.title)).toEqual(['Second', 'First']);
+    expect(res.body.pagination).toEqual({ page: 1, pageSize: 20, totalItems: 2, totalPages: 1 });
+  });
+
+  it('applies a custom page and pageSize', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-paging@example.com');
+    const base = new Date('2026-01-01T00:00:00.000Z');
+    for (let i = 0; i < 5; i += 1) {
+      await createNoteDirect(userId, {
+        title: `Note ${i}`,
+        createdAt: new Date(base.getTime() + i * 1000),
+        updatedAt: new Date(base.getTime() + i * 1000),
+      });
+    }
+
+    const res = await supertest(app)
+      .get('/api/notes?page=2&pageSize=2')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.pagination).toEqual({ page: 2, pageSize: 2, totalItems: 5, totalPages: 3 });
+  });
+
+  it.each([
+    // Titles are deliberately in reverse-alphabetical creation order (Gamma, Beta, Alpha) so that
+    // sorting by createdAt/updatedAt vs. title produces genuinely different orders — this would
+    // catch a bug where sortBy is ignored and the service always sorts by one fixed field.
+    ['createdAt', 'asc', ['Gamma', 'Beta', 'Alpha']],
+    ['createdAt', 'desc', ['Alpha', 'Beta', 'Gamma']],
+    ['updatedAt', 'asc', ['Gamma', 'Beta', 'Alpha']],
+    ['updatedAt', 'desc', ['Alpha', 'Beta', 'Gamma']],
+    ['title', 'asc', ['Alpha', 'Beta', 'Gamma']],
+    ['title', 'desc', ['Gamma', 'Beta', 'Alpha']],
+  ])('sorts by %s %s', async (sortBy, sortOrder, expected) => {
+    const { accessToken, userId } = await registerAndLogin(`list-sort-${sortBy}-${sortOrder}@example.com`);
+    const base = new Date('2026-01-01T00:00:00.000Z');
+    await createNoteDirect(userId, { title: 'Gamma', createdAt: base, updatedAt: base });
+    await createNoteDirect(userId, {
+      title: 'Beta',
+      createdAt: new Date(base.getTime() + 1000),
+      updatedAt: new Date(base.getTime() + 1000),
+    });
+    await createNoteDirect(userId, {
+      title: 'Alpha',
+      createdAt: new Date(base.getTime() + 2000),
+      updatedAt: new Date(base.getTime() + 2000),
+    });
+
+    const res = await supertest(app)
+      .get(`/api/notes?sortBy=${sortBy}&sortOrder=${sortOrder}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { title: string }) => n.title)).toEqual(expected);
+  });
+
+  it('breaks ties deterministically by id ascending when sortBy values are identical', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-tiebreak@example.com');
+    const tiedAt = new Date('2026-01-01T00:00:00.000Z');
+    const noteA = await createNoteDirect(userId, { title: 'Tied A', updatedAt: tiedAt });
+    const noteB = await createNoteDirect(userId, { title: 'Tied B', updatedAt: tiedAt });
+    const expectedIdOrder = [noteA.id, noteB.id].sort();
+
+    const res = await supertest(app)
+      .get('/api/notes')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { id: string }) => n.id)).toEqual(expectedIdOrder);
+  });
+
+  it('filters by a single tag', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-single-tag@example.com');
+    const tagId = await createTag(userId, 'work');
+    const tagged = await createNoteDirect(userId, { title: 'Tagged' });
+    await createNoteDirect(userId, { title: 'Untagged' });
+    await prisma.noteTag.create({ data: { noteId: tagged.id, tagId } });
+
+    const res = await supertest(app)
+      .get(`/api/notes?tagIds=${tagId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].title).toBe('Tagged');
+  });
+
+  it('filters by multiple tags using AND logic (note must have every tag)', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-multi-tag@example.com');
+    const tag1 = await createTag(userId, 'work');
+    const tag2 = await createTag(userId, 'urgent');
+    const both = await createNoteDirect(userId, { title: 'Both' });
+    const onlyTag1 = await createNoteDirect(userId, { title: 'OnlyWork' });
+    await prisma.noteTag.createMany({
+      data: [
+        { noteId: both.id, tagId: tag1 },
+        { noteId: both.id, tagId: tag2 },
+        { noteId: onlyTag1.id, tagId: tag1 },
+      ],
+    });
+
+    const res = await supertest(app)
+      .get(`/api/notes?tagIds=${tag1},${tag2}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].title).toBe('Both');
+  });
+
+  it('returns an empty page when a requested tag id is nonexistent or owned by another user', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-foreign-tag@example.com');
+    const { userId: otherUserId } = await registerAndLogin('list-foreign-tag-other@example.com');
+    const foreignTagId = await createTag(otherUserId, 'not-mine');
+    await createNoteDirect(userId, { title: 'Mine' });
+
+    const res = await supertest(app)
+      .get(`/api/notes?tagIds=${foreignTagId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.pagination).toEqual({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+  });
+
+  it('excludes soft-deleted notes by default', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-exclude-trashed@example.com');
+    await createNoteDirect(userId, { title: 'Active' });
+    await createNoteDirect(userId, { title: 'Trashed', deletedAt: new Date() });
+
+    const res = await supertest(app)
+      .get('/api/notes')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { title: string }) => n.title)).toEqual(['Active']);
+  });
+
+  it('returns only soft-deleted notes when includeTrashed=true', async () => {
+    const { accessToken, userId } = await registerAndLogin('list-trash-view@example.com');
+    await createNoteDirect(userId, { title: 'Active' });
+    await createNoteDirect(userId, { title: 'Trashed', deletedAt: new Date() });
+
+    const res = await supertest(app)
+      .get('/api/notes?includeTrashed=true')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { title: string }) => n.title)).toEqual(['Trashed']);
+  });
+
+  it('returns an empty list with zero totals when the user has no notes', async () => {
+    const { accessToken } = await registerAndLogin('list-empty@example.com');
+
+    const res = await supertest(app)
+      .get('/api/notes')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      data: [],
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 },
+    });
+  });
+
+  it("only returns the authenticated user's own notes", async () => {
+    const { accessToken, userId } = await registerAndLogin('list-isolation-a@example.com');
+    const { userId: otherUserId } = await registerAndLogin('list-isolation-b@example.com');
+    await createNoteDirect(userId, { title: 'Mine' });
+    await createNoteDirect(otherUserId, { title: 'Not mine' });
+
+    const res = await supertest(app)
+      .get('/api/notes')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: { title: string }) => n.title)).toEqual(['Mine']);
+  });
+
+  it.each([
+    ['page=0', 'page'],
+    ['page=abc', 'page'],
+    ['pageSize=0', 'pageSize'],
+    ['pageSize=101', 'pageSize'],
+    ['sortBy=bogus', 'sortBy'],
+    ['sortOrder=sideways', 'sortOrder'],
+    ['tagIds=not-a-uuid', 'tagIds.0'],
+  ])('returns 422 VALIDATION_ERROR for %s', async (queryString, field) => {
+    const { accessToken } = await registerAndLogin(`list-invalid-${field}-${Math.random()}@example.com`);
+
+    const res = await supertest(app)
+      .get(`/api/notes?${queryString}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details[0].field).toBe(field);
+  });
+
+  it('returns 401 with no Authorization header', async () => {
+    const res = await supertest(app).get('/api/notes');
 
     expect(res.status).toBe(401);
   });

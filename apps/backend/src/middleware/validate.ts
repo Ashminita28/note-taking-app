@@ -39,3 +39,26 @@ export function validateParams(schema: ZodType) {
     next();
   };
 }
+
+/**
+ * Parses `req.query` against `schema`; on failure forwards a `ValidationError` (422) to the error
+ * handler. Stashes the parsed/defaulted result on `req.validatedQuery` rather than reassigning
+ * `req.query` — Express 5 defines `query` as a getter-only property, so writing back to it throws.
+ */
+export function validateQuery(schema: ZodType) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      const details: ErrorDetail[] = result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      }));
+      next(new ValidationError(details));
+      return;
+    }
+
+    req.validatedQuery = result.data;
+    next();
+  };
+}
