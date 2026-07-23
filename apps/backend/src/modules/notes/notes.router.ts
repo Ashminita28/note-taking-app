@@ -1,8 +1,14 @@
 import { Router } from 'express';
-import { CreateNoteRequestSchema, UpdateNoteRequestSchema, NoteIdParamSchema } from '@note-app/shared';
-import { validateBody, validateParams } from '../../middleware/validate.js';
+import {
+  CreateNoteRequestSchema,
+  UpdateNoteRequestSchema,
+  NoteIdParamSchema,
+  ListNotesQuerySchema,
+} from '@note-app/shared';
+import { validateBody, validateParams, validateQuery } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import {
+  listNotesHandler,
   createNoteHandler,
   getNoteHandler,
   updateNoteHandler,
@@ -12,6 +18,7 @@ import {
 
 const router = Router();
 
+router.get('/', requireAuth, validateQuery(ListNotesQuerySchema), listNotesHandler);
 router.post('/', requireAuth, validateBody(CreateNoteRequestSchema), createNoteHandler);
 router.get('/:id', requireAuth, validateParams(NoteIdParamSchema), getNoteHandler);
 router.patch(

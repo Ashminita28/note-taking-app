@@ -2,11 +2,15 @@ import { describe, it, expect } from 'vitest';
 import express from 'express';
 import { z } from 'zod';
 import supertest from 'supertest';
-import { validateBody, validateParams } from '../../src/middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../../src/middleware/validate';
 import { errorHandler } from '../../src/middleware/error-handler';
 
 const schema = z.object({ email: z.string().trim().toLowerCase().email() });
 const paramsSchema = z.object({ id: z.string().uuid() });
+const querySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  sortBy: z.enum(['createdAt', 'title']).optional().default('createdAt'),
+});
 
 function buildApp() {
   const app = express();
@@ -22,6 +26,15 @@ function buildParamsApp() {
   const app = express();
   app.get('/test/:id', validateParams(paramsSchema), (req, res) => {
     res.status(200).json({ received: req.params });
+  });
+  app.use(errorHandler);
+  return app;
+}
+
+function buildQueryApp() {
+  const app = express();
+  app.get('/test', validateQuery(querySchema), (req, res) => {
+    res.status(200).json({ validatedQuery: req.validatedQuery, rawQuery: req.query });
   });
   app.use(errorHandler);
   return app;
@@ -63,5 +76,39 @@ describe('validateParams', () => {
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
     expect(response.body.error.details[0].field).toBe('id');
+  });
+});
+
+describe('validateQuery', () => {
+  it('populates req.validatedQuery with defaults applied, leaving req.query untouched', async () => {
+    const response = await supertest(buildQueryApp()).get('/test');
+
+    expect(response.status).toBe(200);
+    expect(response.body.validatedQuery).toEqual({ page: 1, sortBy: 'createdAt' });
+    expect(response.body.rawQuery).toEqual({});
+  });
+
+  it('coerces and overrides query values, still leaving req.query untouched', async () => {
+    const response = await supertest(buildQueryApp()).get('/test?page=3&sortBy=title');
+
+    expect(response.status).toBe(200);
+    expect(response.body.validatedQuery).toEqual({ page: 3, sortBy: 'title' });
+    expect(response.body.rawQuery).toEqual({ page: '3', sortBy: 'title' });
+  });
+
+  it('forwards a ValidationError for an out-of-enum sortBy', async () => {
+    const response = await supertest(buildQueryApp()).get('/test?sortBy=bogus');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(response.body.error.details[0].field).toBe('sortBy');
+  });
+
+  it('forwards a ValidationError for page below the minimum', async () => {
+    const response = await supertest(buildQueryApp()).get('/test?page=0');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(response.body.error.details[0].field).toBe('page');
   });
 });

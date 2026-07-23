@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
+import type { ListNotesQuery } from '@note-app/shared';
 import {
   createNote,
   getNote,
   updateNote,
   softDeleteNote,
   restoreNote,
+  listNotes,
 } from '../../src/modules/notes/notes.service';
 import {
   NoteNotFoundError,
@@ -42,6 +44,8 @@ function createMockPrisma() {
     note: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
@@ -49,12 +53,12 @@ function createMockPrisma() {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    tag: {
+      findMany: vi.fn(),
+    },
     noteVersion: {
       create: vi.fn(),
       aggregate: vi.fn(),
-    },
-    tag: {
-      findMany: vi.fn(),
     },
     shareLink: {
       deleteMany: vi.fn(),
@@ -347,5 +351,187 @@ describe('restoreNote', () => {
     prisma.note.findFirst.mockResolvedValue(buildNote({ deletedAt: null }));
 
     await expect(restoreNote(prisma, USER_ID, NOTE_ID)).rejects.toThrow(NotDeletedError);
+  });
+});
+
+function buildQuery(overrides: Partial<ListNotesQuery> = {}): ListNotesQuery {
+  return {
+    page: 1,
+    pageSize: 20,
+    sortBy: 'updatedAt',
+    sortOrder: 'desc',
+    includeTrashed: false,
+    ...overrides,
+  };
+}
+
+describe('listNotes', () => {
+  it('applies default pagination and orderBy with an id tie-breaker', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery());
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, deletedAt: null },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      skip: 0,
+      take: 20,
+      include: { tags: { include: { tag: true } } },
+    });
+    expect(prisma.note.count).toHaveBeenCalledWith({ where: { userId: USER_ID, deletedAt: null } });
+  });
+
+  it('computes skip/take from a custom page and pageSize', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ page: 3, pageSize: 10 }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 10 }),
+    );
+  });
+
+  it('applies the requested sortBy/sortOrder with id asc as the tie-breaker', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ sortBy: 'title', sortOrder: 'asc' }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ title: 'asc' }, { id: 'asc' }] }),
+    );
+  });
+
+  it('filters to soft-deleted notes only when includeTrashed is true', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ includeTrashed: true }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: USER_ID, deletedAt: { not: null } } }),
+    );
+  });
+
+  it('builds an AND where-clause requiring every requested tag for a single tag filter', async () => {
+    const prisma = createMockPrisma();
+    prisma.tag.findMany.mockResolvedValue([{ id: TAG_ID_1 }]);
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ tagIds: [TAG_ID_1] }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: USER_ID,
+          deletedAt: null,
+          AND: [{ tags: { some: { tagId: TAG_ID_1 } } }],
+        },
+      }),
+    );
+  });
+
+  it('builds an AND where-clause requiring every requested tag for a multi-tag filter', async () => {
+    const prisma = createMockPrisma();
+    prisma.tag.findMany.mockResolvedValue([{ id: TAG_ID_1 }, { id: TAG_ID_2 }]);
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ tagIds: [TAG_ID_1, TAG_ID_2] }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: USER_ID,
+          deletedAt: null,
+          AND: [
+            { tags: { some: { tagId: TAG_ID_1 } } },
+            { tags: { some: { tagId: TAG_ID_2 } } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('combines a tag filter with includeTrashed, scoping to soft-deleted notes only', async () => {
+    const prisma = createMockPrisma();
+    prisma.tag.findMany.mockResolvedValue([{ id: TAG_ID_1 }]);
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ tagIds: [TAG_ID_1], includeTrashed: true }));
+
+    expect(prisma.note.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: USER_ID,
+          deletedAt: { not: null },
+          AND: [{ tags: { some: { tagId: TAG_ID_1 } } }],
+        },
+      }),
+    );
+  });
+
+  it('short-circuits to an empty page without querying notes when a tag id is foreign or nonexistent', async () => {
+    const prisma = createMockPrisma();
+    prisma.tag.findMany.mockResolvedValue([{ id: TAG_ID_1 }]); // TAG_ID_2 doesn't resolve
+
+    const result = await listNotes(prisma, USER_ID, buildQuery({ tagIds: [TAG_ID_1, TAG_ID_2] }));
+
+    expect(prisma.note.findMany).not.toHaveBeenCalled();
+    expect(prisma.note.count).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      data: [],
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 },
+    });
+  });
+
+  it('dedupes repeated tagIds before resolving ownership', async () => {
+    const prisma = createMockPrisma();
+    prisma.tag.findMany.mockResolvedValue([{ id: TAG_ID_1 }]);
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    await listNotes(prisma, USER_ID, buildQuery({ tagIds: [TAG_ID_1, TAG_ID_1] }));
+
+    expect(prisma.tag.findMany).toHaveBeenCalledWith({
+      where: { id: { in: [TAG_ID_1] }, userId: USER_ID },
+      select: { id: true },
+    });
+  });
+
+  it('returns totalPages: 0 when there are no notes', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([]);
+    prisma.note.count.mockResolvedValue(0);
+
+    const result = await listNotes(prisma, USER_ID, buildQuery());
+
+    expect(result).toEqual({
+      data: [],
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 },
+    });
+  });
+
+  it('maps found notes to the note response shape and computes totalPages', async () => {
+    const prisma = createMockPrisma();
+    prisma.note.findMany.mockResolvedValue([
+      buildNoteWithTags({ id: NOTE_ID, title: 'Groceries' }),
+    ]);
+    prisma.note.count.mockResolvedValue(25);
+
+    const result = await listNotes(prisma, USER_ID, buildQuery({ pageSize: 20 }));
+
+    expect(result.data).toEqual([
+      expect.objectContaining({ id: NOTE_ID, title: 'Groceries' }),
+    ]);
+    expect(result.pagination).toEqual({ page: 1, pageSize: 20, totalItems: 25, totalPages: 2 });
   });
 });

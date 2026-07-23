@@ -2,8 +2,8 @@
 
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 20;
-export const DEFAULT_SORT_BY = 'updatedAt';
-export const DEFAULT_SORT_ORDER = 'desc';
+export const DEFAULT_SORT_BY = 'updatedAt' as const;
+export const DEFAULT_SORT_ORDER = 'desc' as const;
 
 export const DEFAULT_SHARE_EXPIRY_HOURS = 168;
 

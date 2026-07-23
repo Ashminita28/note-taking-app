@@ -4,6 +4,7 @@ import {
   UpdateNoteRequestSchema,
   NoteResponseSchema,
   NoteIdParamSchema,
+  ListNotesQuerySchema,
 } from '../../src/schemas/note.schemas';
 import { NOTE_TITLE_MAX_LENGTH } from '../../src/constants/limits';
 import { DEFAULT_NOTE_TITLE } from '../../src/constants/defaults';
@@ -118,5 +119,81 @@ describe('NoteIdParamSchema', () => {
 
   it('rejects a non-UUID id', () => {
     expect(NoteIdParamSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false);
+  });
+});
+
+describe('ListNotesQuerySchema', () => {
+  it('applies all defaults when every param is omitted', () => {
+    const result = ListNotesQuerySchema.parse({});
+    expect(result).toEqual({
+      page: 1,
+      pageSize: 20,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+      includeTrashed: false,
+    });
+  });
+
+  it('coerces page and pageSize from query-string values', () => {
+    const result = ListNotesQuerySchema.parse({ page: '2', pageSize: '10' });
+    expect(result.page).toBe(2);
+    expect(result.pageSize).toBe(10);
+  });
+
+  it('rejects page below 1', () => {
+    expect(ListNotesQuerySchema.safeParse({ page: '0' }).success).toBe(false);
+  });
+
+  it('rejects pageSize above the max of 100', () => {
+    expect(ListNotesQuerySchema.safeParse({ pageSize: '101' }).success).toBe(false);
+  });
+
+  it('rejects pageSize below 1', () => {
+    expect(ListNotesQuerySchema.safeParse({ pageSize: '0' }).success).toBe(false);
+  });
+
+  it('accepts each allowed sortBy value', () => {
+    for (const sortBy of ['createdAt', 'updatedAt', 'title']) {
+      expect(ListNotesQuerySchema.safeParse({ sortBy }).success).toBe(true);
+    }
+  });
+
+  it('rejects a sortBy value outside the enum', () => {
+    expect(ListNotesQuerySchema.safeParse({ sortBy: 'invalidField' }).success).toBe(false);
+  });
+
+  it('accepts both sortOrder values', () => {
+    expect(ListNotesQuerySchema.safeParse({ sortOrder: 'asc' }).success).toBe(true);
+    expect(ListNotesQuerySchema.safeParse({ sortOrder: 'desc' }).success).toBe(true);
+  });
+
+  it('rejects a sortOrder value outside the enum', () => {
+    expect(ListNotesQuerySchema.safeParse({ sortOrder: 'upwards' }).success).toBe(false);
+  });
+
+  it('parses a comma-separated tagIds string into a UUID array', () => {
+    const result = ListNotesQuerySchema.parse({
+      tagIds: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e,c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f',
+    });
+    expect(result.tagIds).toEqual([
+      'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e',
+      'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f',
+    ]);
+  });
+
+  it('rejects tagIds containing a non-UUID segment', () => {
+    expect(
+      ListNotesQuerySchema.safeParse({ tagIds: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e,not-a-uuid' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('transforms includeTrashed "true"/"false" strings into booleans', () => {
+    expect(ListNotesQuerySchema.parse({ includeTrashed: 'true' }).includeTrashed).toBe(true);
+    expect(ListNotesQuerySchema.parse({ includeTrashed: 'false' }).includeTrashed).toBe(false);
+  });
+
+  it('rejects an includeTrashed value outside "true"/"false"', () => {
+    expect(ListNotesQuerySchema.safeParse({ includeTrashed: 'yes' }).success).toBe(false);
   });
 });
