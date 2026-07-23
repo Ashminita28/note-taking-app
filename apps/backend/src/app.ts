@@ -7,6 +7,7 @@ import { rateLimiter } from './middleware/rate-limiter.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/auth.router.js';
+import { notesRouter } from './modules/notes/notes.router.js';
 
 export function createApp(): Express {
   const app = express();
@@ -18,8 +19,9 @@ export function createApp(): Express {
   app.use(rateLimiter);
 
   app.use('/api/auth', authRouter);
+  app.use('/api/notes', notesRouter);
 
-  // Further feature routes are mounted here by their owning tickets (AB-1004 onward).
+  // Further feature routes are mounted here by their owning tickets (AB-1005 onward).
 
   app.use(notFoundHandler);
   app.use(errorHandler);

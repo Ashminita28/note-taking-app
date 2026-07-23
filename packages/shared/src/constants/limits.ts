@@ -25,3 +25,5 @@ export const SHARE_EXPIRY_MAX_HOURS = 720;
 export const PAGE_MIN = 1;
 export const PAGE_SIZE_MIN = 1;
 export const PAGE_SIZE_MAX = 100;
+
+export const RECOVERY_WINDOW_DAYS = 30;

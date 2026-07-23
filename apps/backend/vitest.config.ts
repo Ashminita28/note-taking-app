@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Integration suites truncate overlapping tables (User, RefreshToken) against one real
+    // Postgres test DB — running test files concurrently races those truncations across suites.
+    fileParallelism: false,
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://notetaking:notetaking@localhost:5433/notetaking_test',
