@@ -43,6 +43,27 @@ describe('errorHandler', () => {
     });
   });
 
+  it('maps an Express payload-too-large error to 413 CONTENT_TOO_LARGE', async () => {
+    const app = express();
+    app.get('/too-large', () => {
+      const err = new Error('request entity too large') as Error & { type: string };
+      err.type = 'entity.too.large';
+      throw err;
+    });
+    app.use(errorHandler);
+
+    const response = await supertest(app).get('/too-large');
+
+    expect(response.status).toBe(413);
+    expect(response.body).toEqual({
+      error: {
+        code: 'CONTENT_TOO_LARGE',
+        message: 'Note content exceeds the maximum allowed size.',
+        details: [],
+      },
+    });
+  });
+
   it('includes field-level details for a ValidationError', async () => {
     const app = express();
     app.get('/invalid', () => {

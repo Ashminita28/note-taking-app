@@ -20,3 +20,22 @@ export function validateBody(schema: ZodType) {
     next();
   };
 }
+
+/** Parses `req.params` against `schema`; on failure forwards a `ValidationError` (422) to the error handler. */
+export function validateParams(schema: ZodType) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.params);
+
+    if (!result.success) {
+      const details: ErrorDetail[] = result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      }));
+      next(new ValidationError(details));
+      return;
+    }
+
+    req.params = result.data as typeof req.params;
+    next();
+  };
+}

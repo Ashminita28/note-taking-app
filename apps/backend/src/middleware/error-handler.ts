@@ -19,6 +19,17 @@ export function errorHandler(
     return;
   }
 
+  if (typeof err === 'object' && err !== null && (err as { type?: string }).type === 'entity.too.large') {
+    res.status(413).json({
+      error: {
+        code: ERROR_CODES.CONTENT_TOO_LARGE,
+        message: 'Note content exceeds the maximum allowed size.',
+        details: [],
+      },
+    });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({
     error: {
