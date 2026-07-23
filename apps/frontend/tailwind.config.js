@@ -57,9 +57,14 @@ export default {
           '20%, 60%': { transform: 'translateX(-4px)' },
           '40%, 80%': { transform: 'translateX(4px)' },
         },
+        shimmer: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.5' },
+        },
       },
       animation: {
         shake: 'shake 0.4s ease-in-out',
+        shimmer: 'shimmer 1.5s linear infinite',
       },
     },
   },
