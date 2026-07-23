@@ -316,6 +316,37 @@ describe('GET /api/search', () => {
     expect(res.status).toBe(401);
   });
 
+  it('Scenario 17 — prefix matching: "kube" matches a note containing "kubernetes"', async () => {
+    const { accessToken, userId } = await registerAndLogin('search-prefix-match@example.com');
+    await createSearchableNoteDirect(userId, {
+      title: 'Infra Notes',
+      contentPlain: 'We are migrating workloads to kubernetes next quarter.',
+    });
+
+    const res = await supertest(app)
+      .get('/api/search?q=kube')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].title).toBe('Infra Notes');
+  });
+
+  it('Scenario 17b — prefix matching does not match unrelated terms', async () => {
+    const { accessToken, userId } = await registerAndLogin('search-prefix-no-match@example.com');
+    await createSearchableNoteDirect(userId, {
+      title: 'Groceries',
+      contentPlain: 'Milk, eggs, bread.',
+    });
+
+    const res = await supertest(app)
+      .get('/api/search?q=kube')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+  });
+
   it('confirms the full create-then-search round trip through the real POST /api/notes endpoint', async () => {
     const { accessToken } = await registerAndLogin('search-round-trip@example.com');
 

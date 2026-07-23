@@ -16,10 +16,33 @@ interface CountRow {
 }
 
 /**
+ * Converts a raw search query into a `to_tsquery`-safe prefix query (each term becomes `term:*`,
+ * ANDed together) so partial input like "kube" matches "kubernetes" (FRS §9.5 AC-6 / SDS §24.5).
+ * Unlike `plainto_tsquery`, `to_tsquery` raises a syntax error on stray operator characters
+ * (`& | : ! ( )`), so every term is stripped down to letters/digits before being reassembled —
+ * this also keeps Scenario 15 (operator characters in `q`) returning 200, not 500.
+ * Returns null when no term survives sanitization (e.g. `q` is only punctuation); the caller
+ * binds that as a SQL NULL, which makes `searchVector @@ to_tsquery(...)` evaluate to NULL
+ * (no rows), so the query still degrades to an empty result set instead of erroring.
+ */
+function buildPrefixTsQuery(q: string): string | null {
+  const terms = q
+    .split(/\s+/)
+    .map((term) => term.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((term) => term.length > 0);
+
+  return terms.length > 0 ? terms.map((term) => `${term}:*`).join(' & ') : null;
+}
+
+/**
  * Builds the shared WHERE fragment (user scope, non-deleted, search match, optional tag filter) so
  * the data query and count query stay in lockstep — they must agree on which rows match.
  */
-function buildWhereFragment(userId: string, query: SearchQuery): Prisma.Sql {
+function buildWhereFragment(
+  userId: string,
+  query: SearchQuery,
+  tsQueryString: string | null,
+): Prisma.Sql {
   const tagFilter =
     query.tagIds && query.tagIds.length > 0
       ? Prisma.sql`AND n."id" IN (
@@ -33,7 +56,7 @@ function buildWhereFragment(userId: string, query: SearchQuery): Prisma.Sql {
   return Prisma.sql`
     n."userId" = ${userId}::uuid
     AND n."deletedAt" IS NULL
-    AND n."searchVector" @@ plainto_tsquery('english', ${query.q})
+    AND n."searchVector" @@ to_tsquery('english', ${tsQueryString})
     ${tagFilter}
   `;
 }
@@ -44,7 +67,8 @@ export async function searchNotes(
   query: SearchQuery,
 ): Promise<SearchResponse> {
   const { page, pageSize } = query;
-  const where = buildWhereFragment(userId, query);
+  const tsQueryString = buildPrefixTsQuery(query.q);
+  const where = buildWhereFragment(userId, query, tsQueryString);
   const offset = (page - 1) * pageSize;
 
   const [rows, countRows] = await Promise.all([
@@ -52,8 +76,8 @@ export async function searchNotes(
       SELECT
         n."id" AS "id",
         n."title" AS "title",
-        ts_rank(n."searchVector", plainto_tsquery('english', ${query.q})) AS "rank",
-        ts_headline('english', n."contentPlain", plainto_tsquery('english', ${query.q}),
+        ts_rank(n."searchVector", to_tsquery('english', ${tsQueryString})) AS "rank",
+        ts_headline('english', n."contentPlain", to_tsquery('english', ${tsQueryString}),
           'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=20'
         ) AS "snippet",
         n."createdAt" AS "createdAt",

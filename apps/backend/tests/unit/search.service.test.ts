@@ -77,7 +77,7 @@ describe('searchNotes', () => {
     await searchNotes(prisma, USER_ID, { q: 'term', page: 3, pageSize: 10 });
 
     const dataCallArgs = prisma.$queryRaw.mock.calls[0];
-    // Template values, in source order: q (ts_rank), q (ts_headline), where, pageSize, offset.
+    // Template values, in source order: tsQuery (ts_rank), tsQuery (ts_headline), where, pageSize, offset.
     expect(dataCallArgs[4]).toBe(10); // pageSize
     expect(dataCallArgs[5]).toBe(20); // offset = (3 - 1) * 10
   });
@@ -95,7 +95,8 @@ describe('searchNotes', () => {
 
     expect(whereFromData.text).not.toContain('HAVING');
     expect(whereFromData.values).toContain(USER_ID);
-    expect(whereFromData.values).toContain('roadmap');
+    // q is converted into a prefix tsquery ("term:*") so partial input matches longer words.
+    expect(whereFromData.values).toContain('roadmap:*');
     // Data and count queries must share the exact same WHERE fragment so they never disagree.
     expect(whereFromCount).toBe(whereFromData);
   });
