@@ -1,7 +1,10 @@
+import { AuthCard } from '../features/auth/components/AuthCard';
+import { ForgotPasswordForm } from '../features/auth/components/ForgotPasswordForm';
+
 export function ForgotPasswordPage() {
   return (
-    <main>
-      <h1>Forgot Password</h1>
-    </main>
+    <AuthCard title="Forgot Password">
+      <ForgotPasswordForm />
+    </AuthCard>
   );
 }

@@ -1,7 +1,10 @@
+import { AuthCard } from '../features/auth/components/AuthCard';
+import { RegisterForm } from '../features/auth/components/RegisterForm';
+
 export function RegisterPage() {
   return (
-    <main>
-      <h1>Register</h1>
-    </main>
+    <AuthCard title="Register">
+      <RegisterForm />
+    </AuthCard>
   );
 }

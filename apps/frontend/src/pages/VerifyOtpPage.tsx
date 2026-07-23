@@ -1,7 +1,10 @@
+import { AuthCard } from '../features/auth/components/AuthCard';
+import { OtpForm } from '../features/auth/components/OtpForm';
+
 export function VerifyOtpPage() {
   return (
-    <main>
-      <h1>Verify OTP</h1>
-    </main>
+    <AuthCard title="Verify OTP">
+      <OtpForm />
+    </AuthCard>
   );
 }

@@ -1,7 +1,10 @@
+import { AuthCard } from '../features/auth/components/AuthCard';
+import { ResetPasswordForm } from '../features/auth/components/ResetPasswordForm';
+
 export function ResetPasswordPage() {
   return (
-    <main>
-      <h1>Reset Password</h1>
-    </main>
+    <AuthCard title="Reset Password">
+      <ResetPasswordForm />
+    </AuthCard>
   );
 }
