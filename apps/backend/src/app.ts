@@ -8,6 +8,7 @@ import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/auth.router.js';
 import { notesRouter } from './modules/notes/notes.router.js';
+import { tagsRouter } from './modules/tags/tags.router.js';
 
 export function createApp(): Express {
   const app = express();
@@ -20,8 +21,9 @@ export function createApp(): Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api/notes', notesRouter);
+  app.use('/api/tags', tagsRouter);
 
-  // Further feature routes are mounted here by their owning tickets (AB-1005 onward).
+  // Further feature routes are mounted here by their owning tickets (AB-1007 onward).
 
   app.use(notFoundHandler);
   app.use(errorHandler);
