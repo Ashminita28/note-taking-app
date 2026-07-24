@@ -2,6 +2,7 @@ import { Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { UserMenu } from '../../features/auth/components/UserMenu';
+import { SearchBar } from '../../features/search/components/SearchBar';
 import { useUIStore } from '../../stores/ui.store';
 
 export function DashboardHeader() {
@@ -16,6 +17,7 @@ export function DashboardHeader() {
         </Button>
         <h1 className="text-lg font-semibold text-foreground">Notes</h1>
       </div>
+      <SearchBar />
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={() => navigate('/notes/new')}>
           + New Note
