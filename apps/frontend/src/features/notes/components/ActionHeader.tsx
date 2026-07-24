@@ -29,6 +29,8 @@ interface ActionHeaderProps {
   onShare?: () => void;
   /** Undefined until AB-1015 wires the version history drawer — the menu item renders disabled until then. */
   onHistory?: () => void;
+  /** Exposes the "More actions" trigger button so a parent-rendered dialog (e.g. AB-1014's ShareModal) can return focus to it on close, the same way DeleteNoteDialog does internally. */
+  onMoreMenuTriggerRef?: (element: HTMLButtonElement | null) => void;
 }
 
 /** Back button, title input, autosave indicator, and "More" menu (Share/History/Move to trash — UX §8.7). */
@@ -42,6 +44,7 @@ export function ActionHeader({
   autoFocusTitle,
   onShare,
   onHistory,
+  onMoreMenuTriggerRef,
 }: ActionHeaderProps) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -65,7 +68,15 @@ export function ActionHeader({
       <AutosaveStatusIndicator status={status} message={errorMessage} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button ref={moreMenuTriggerRef} variant="ghost" size="sm" aria-label="More actions">
+          <Button
+            ref={(element) => {
+              moreMenuTriggerRef.current = element;
+              onMoreMenuTriggerRef?.(element);
+            }}
+            variant="ghost"
+            size="sm"
+            aria-label="More actions"
+          >
             <MoreVertical className="h-4 w-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
