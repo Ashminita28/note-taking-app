@@ -9,13 +9,7 @@ import { SortDropdown } from '../features/notes/components/SortDropdown';
 import { TrashToggle } from '../features/notes/components/TrashToggle';
 import { useNotesQuery } from '../features/notes/notes.hooks';
 import { useNotesListParams } from '../features/notes/useNotesListParams';
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-}
+import { isTypingTarget } from '../lib/dom';
 
 export function DashboardPage() {
   const navigate = useNavigate();

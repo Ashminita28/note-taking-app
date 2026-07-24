@@ -10,6 +10,7 @@ import { VerifyOtpPage } from './pages/VerifyOtpPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
+import { SearchResultsPage } from './pages/SearchResultsPage';
 import { SharedNotePage } from './pages/SharedNotePage';
 
 export function App() {
@@ -35,6 +36,14 @@ export function App() {
             element={
               <ProtectedRoute>
                 <EditorPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <SearchResultsPage />
               </ProtectedRoute>
             }
           />
