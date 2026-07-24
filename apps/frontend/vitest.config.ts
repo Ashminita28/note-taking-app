@@ -19,8 +19,7 @@ export default defineConfig({
         'src/main.tsx',
         // Route wiring only — behavior is exercised by the Playwright e2e smoke test.
         'src/App.tsx',
-        // Single-heading placeholders rewritten by their owning tickets (AB-1012, AB-1013+).
-        'src/pages/EditorPage.tsx',
+        // Single-heading placeholders rewritten by their owning tickets (AB-1013+).
         'src/pages/SharedNotePage.tsx',
       ],
     },

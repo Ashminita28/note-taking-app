@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { apiClient } from '../../../../src/lib/api-client';
-import { getTags } from '../../../../src/features/tags/tags.api';
+import { getTags, createTag } from '../../../../src/features/tags/tags.api';
 
 vi.mock('../../../../src/lib/api-client', () => ({
   apiClient: { request: vi.fn() },
@@ -17,5 +17,14 @@ describe('tags.api', () => {
     await getTags();
 
     expect(apiClient.request).toHaveBeenCalledWith({ path: '/tags' });
+  });
+
+  it('createTag posts the input to /tags', async () => {
+    vi.mocked(apiClient.request).mockResolvedValue({ tag: {} });
+    const input = { name: 'Work' };
+
+    await createTag(input);
+
+    expect(apiClient.request).toHaveBeenCalledWith({ path: '/tags', method: 'POST', body: input });
   });
 });

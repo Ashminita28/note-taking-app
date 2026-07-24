@@ -31,14 +31,6 @@ export function App() {
             }
           />
           <Route
-            path="/notes/new"
-            element={
-              <ProtectedRoute>
-                <EditorPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/notes/:id"
             element={
               <ProtectedRoute>
