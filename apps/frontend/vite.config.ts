@@ -18,4 +18,9 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // TipTap + its extensions push the single-page bundle past Vite's default 500kb hint;
+    // splitting a small SPA into extra chunks isn't warranted, so the limit is raised instead.
+    chunkSizeWarningLimit: 1200,
+  },
 });

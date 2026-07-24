@@ -3,11 +3,17 @@ import { useEffect, useState } from 'react';
 const TOAST_LIMIT = 3;
 const TOAST_DURATION_MS = 5000;
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastItem {
   id: string;
   title?: string;
   description?: string;
   variant?: 'default' | 'destructive';
+  action?: ToastAction;
 }
 
 type Listener = (toasts: ToastItem[]) => void;

@@ -1,4 +1,5 @@
 import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from './toast';
+import { Button } from './button';
 import { useToast } from './use-toast';
 
 export function Toaster() {
@@ -6,7 +7,7 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(({ id, title, description, variant }) => (
+      {toasts.map(({ id, title, description, variant, action }) => (
         <Toast
           key={id}
           variant={variant}
@@ -18,6 +19,18 @@ export function Toaster() {
             {title && <ToastTitle>{title}</ToastTitle>}
             {description && <ToastDescription>{description}</ToastDescription>}
           </div>
+          {action && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                action.onClick();
+                dismiss(id);
+              }}
+            >
+              {action.label}
+            </Button>
+          )}
           <ToastClose />
         </Toast>
       ))}

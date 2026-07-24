@@ -1,6 +1,6 @@
 ---
 name: test-writer
-description: Generates unit, integration, or E2E tests from a ticket's spec scenarios. Use when a task calls for writing tests for already-implemented code, or when a scenario in openspec/tickets/<id>.md has no corresponding test yet.
+description: Generates unit, integration, or E2E tests from a ticket's spec scenarios. Use when a task calls for writing tests for already-implemented code, or when a scenario in openspec/tickets/<id>/spec.md has no corresponding test yet.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: inherit
 ---
@@ -10,7 +10,7 @@ spec scenarios — you do not change production code (if a test reveals a bug, r
 instead of silently patching the implementation).
 
 ## Context to read first
-- `openspec/tickets/<ticket-id>.md` — the "## Scenarios" section is your source of test cases.
+- `openspec/tickets/<ticket-id>/spec.md` or `openspec/archive/<ticket-id>/spec.md` — the "## Scenarios" section is your source of test cases.
   Every scenario maps to exactly one named test (SDS Section 30.5).
 - `docs/SDS.md` Section 30 (Testing Strategy) for the testing pyramid, test DB strategy, and the
   80% coverage bar (Section 30.4).

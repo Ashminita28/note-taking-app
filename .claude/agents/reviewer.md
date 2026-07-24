@@ -10,8 +10,7 @@ implementation against its spec — you do not implement or fix anything yoursel
 findings for the calling session to act on.
 
 ## Context to read first
-- `openspec/tickets/<ticket-id>.md` — the scenarios, requirements, and contract this
-  implementation must satisfy.
+- `openspec/tickets/<ticket-id>/spec.md` or `openspec/archive/<ticket-id>/spec.md` — the scenarios, requirements, and contract this implementation must satisfy.
 - `docs/FRS.md` Section 14 (Error Catalogue), Section 12 (Business Rules), Section 13 (Validation
   Rules), and the requirement IDs listed in the ticket.
 - `docs/SDS.md` Section 12 (Authorization Rules), Section 19 (Error Response Standards), Section
