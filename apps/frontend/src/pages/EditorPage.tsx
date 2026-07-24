@@ -6,6 +6,7 @@ import { TagBar } from '../features/notes/components/TagBar';
 import { NoteEditor } from '../features/notes/components/NoteEditor';
 import { EditorSkeleton } from '../features/notes/components/EditorSkeleton';
 import { NoteNotFoundState } from '../features/notes/components/NoteNotFoundState';
+import { ShareModal } from '../features/share/components/ShareModal';
 import { useNoteQuery } from '../features/notes/notes.hooks';
 import { useAutosave } from '../features/notes/useAutosave';
 import { NEW_NOTE_ID } from '../features/notes/notes.constants';
@@ -23,7 +24,9 @@ export function EditorPage() {
 
   const [draft, setDraft] = useState<EditorDraft>({ title: '', content: '', tagIds: [] });
   const [tags, setTags] = useState<NoteTagRef[]>([]);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const seededRef = useRef(false);
+  const moreMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Seeds local draft/tags exactly once — from a blank slate for a new note, or from the loaded
   // note for an existing one. Guarded by `seededRef` so a later background refetch (e.g. once
@@ -117,9 +120,21 @@ export function EditorPage() {
         errorMessage={errorMessage}
         canDelete={!isNew}
         autoFocusTitle={isNew}
+        onShare={isNew ? undefined : () => setShareModalOpen(true)}
+        onMoreMenuTriggerRef={(element) => {
+          moreMenuTriggerRef.current = element;
+        }}
       />
       <TagBar tags={tags} onChange={handleTagsChange} />
       <NoteEditor initialContent={draft.content} onContentChange={handleContentChange} />
+      {!isNew && (
+        <ShareModal
+          noteId={id}
+          open={shareModalOpen}
+          onOpenChange={setShareModalOpen}
+          returnFocusRef={moreMenuTriggerRef}
+        />
+      )}
     </div>
   );
 }

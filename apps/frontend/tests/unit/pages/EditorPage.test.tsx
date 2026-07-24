@@ -26,15 +26,30 @@ vi.mock('../../../src/features/notes/components/ActionHeader', () => ({
     status,
     canDelete,
     autoFocusTitle,
+    onShare,
   }: {
     title: string;
     status: string;
     canDelete: boolean;
     autoFocusTitle?: boolean;
+    onShare?: () => void;
   }) => (
     <div data-testid="action-header">
       {title} / {status} / {canDelete ? 'can-delete' : 'no-delete'} /{' '}
       {autoFocusTitle ? 'title-autofocus' : 'title-no-autofocus'}
+      {onShare && (
+        <button type="button" onClick={onShare}>
+          Share
+        </button>
+      )}
+    </div>
+  ),
+}));
+
+vi.mock('../../../src/features/share/components/ShareModal', () => ({
+  ShareModal: ({ noteId, open }: { noteId: string; open: boolean }) => (
+    <div data-testid="share-modal">
+      {noteId} / {open ? 'open' : 'closed'}
     </div>
   ),
 }));
@@ -163,5 +178,21 @@ describe('EditorPage', () => {
     onCreated(sampleNote);
 
     expect(navigateMock).toHaveBeenCalledWith('/notes/n1', { replace: true });
+  });
+
+  it('clicking Share opens ShareModal for the current note (AB-1014)', () => {
+    vi.mocked(useNoteQuery).mockReturnValue({
+      data: { note: sampleNote },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useNoteQuery>);
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn() });
+
+    renderAt('/notes/n1');
+
+    expect(screen.getByTestId('share-modal')).toHaveTextContent('n1 / closed');
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(screen.getByTestId('share-modal')).toHaveTextContent('n1 / open');
   });
 });

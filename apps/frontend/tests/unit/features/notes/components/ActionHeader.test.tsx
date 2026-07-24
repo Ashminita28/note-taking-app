@@ -125,4 +125,22 @@ describe('ActionHeader', () => {
     expect(screen.getByText('Move to trash').closest('[role="menuitem"]')).toHaveAttribute('data-disabled');
     expect(screen.queryByTestId('delete-dialog-stub')).not.toBeInTheDocument();
   });
+
+  it('exposes the "More actions" trigger button via onMoreMenuTriggerRef (AB-1014)', () => {
+    const onMoreMenuTriggerRef = vi.fn();
+    render(
+      <MemoryRouter>
+        <ActionHeader
+          noteId="n1"
+          title="My note"
+          onTitleChange={vi.fn()}
+          status="idle"
+          canDelete
+          onMoreMenuTriggerRef={onMoreMenuTriggerRef}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(onMoreMenuTriggerRef).toHaveBeenCalledWith(screen.getByRole('button', { name: 'More actions' }));
+  });
 });
