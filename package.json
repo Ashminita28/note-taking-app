@@ -10,6 +10,7 @@
     "build": "pnpm -r --if-present run build",
     "lint": "pnpm -r --if-present run lint",
     "test": "pnpm -r --if-present run test",
+    "test:e2e": "pnpm --filter @note-app/frontend test:e2e",
     "dev": "pnpm --parallel --filter @note-app/backend --filter @note-app/frontend run dev",
     "dev:backend": "pnpm --filter @note-app/backend run dev",
     "dev:frontend": "pnpm --filter @note-app/frontend run dev",

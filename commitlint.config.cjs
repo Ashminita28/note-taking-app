@@ -10,7 +10,7 @@ module.exports = {
     'scope-enum': [
       2,
       'always',
-      ['auth', 'notes', 'tags', 'search', 'share', 'versions', 'shared', 'config'],
+      ['auth', 'notes', 'tags', 'search', 'share', 'versions', 'shared', 'config','e2e'],
     ],
     'scope-empty': [2, 'never'],
   },

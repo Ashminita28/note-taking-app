@@ -84,6 +84,9 @@ export function useDeleteNoteMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', 'list'] });
       queryClient.invalidateQueries({ queryKey: ['tags', 'list'] });
+      // BR-014: soft-deleting a note auto-revokes its share link server-side, so the Share
+      // dialog's cached list must be invalidated too or it keeps showing the now-dead link.
+      queryClient.invalidateQueries({ queryKey: ['shares', 'list'] });
     },
   });
 }
