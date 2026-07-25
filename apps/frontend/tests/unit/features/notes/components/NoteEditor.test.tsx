@@ -1,11 +1,14 @@
+import { createRef } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NoteEditor } from '../../../../../src/features/notes/components/NoteEditor';
+import type { NoteEditorHandle } from '../../../../../src/features/notes/components/NoteEditor';
 
 let capturedOnUpdate: ((args: { editor: { getHTML: () => string } }) => void) | undefined;
 const codeBlockRun = vi.fn();
 const strikeRun = vi.fn();
 const orderedListRun = vi.fn();
+const setContentMock = vi.fn();
 
 vi.mock('@tiptap/react', () => ({
   useEditor: (options: { onUpdate?: (args: { editor: { getHTML: () => string } }) => void }) => {
@@ -21,6 +24,7 @@ vi.mock('@tiptap/react', () => ({
         }),
       }),
       getHTML: () => '<p>updated</p>',
+      commands: { setContent: setContentMock },
     };
   },
   EditorContent: () => <div data-testid="editor-content" />,
@@ -81,5 +85,14 @@ describe('NoteEditor', () => {
     fireEvent.keyDown(container.firstChild as Element, { code: 'Digit9', ctrlKey: true, shiftKey: true });
 
     expect(orderedListRun).toHaveBeenCalled();
+  });
+
+  it('exposes an imperative setContent handle that calls editor.commands.setContent (AB-1015)', () => {
+    const ref = createRef<NoteEditorHandle>();
+    render(<NoteEditor ref={ref} initialContent="<p>hi</p>" onContentChange={vi.fn()} />);
+
+    ref.current?.setContent('<p>restored</p>');
+
+    expect(setContentMock).toHaveBeenCalledWith('<p>restored</p>');
   });
 });

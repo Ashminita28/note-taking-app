@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { forwardRef, useImperativeHandle } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EditorPage } from '../../../src/pages/EditorPage';
@@ -27,12 +28,14 @@ vi.mock('../../../src/features/notes/components/ActionHeader', () => ({
     canDelete,
     autoFocusTitle,
     onShare,
+    onHistory,
   }: {
     title: string;
     status: string;
     canDelete: boolean;
     autoFocusTitle?: boolean;
     onShare?: () => void;
+    onHistory?: () => void;
   }) => (
     <div data-testid="action-header">
       {title} / {status} / {canDelete ? 'can-delete' : 'no-delete'} /{' '}
@@ -40,6 +43,11 @@ vi.mock('../../../src/features/notes/components/ActionHeader', () => ({
       {onShare && (
         <button type="button" onClick={onShare}>
           Share
+        </button>
+      )}
+      {onHistory && (
+        <button type="button" onClick={onHistory}>
+          History
         </button>
       )}
     </div>
@@ -54,15 +62,41 @@ vi.mock('../../../src/features/share/components/ShareModal', () => ({
   ),
 }));
 
+vi.mock('../../../src/features/versions/components/VersionHistoryDrawer', () => ({
+  VersionHistoryDrawer: ({
+    noteId,
+    open,
+    onRestored,
+  }: {
+    noteId: string;
+    open: boolean;
+    onRestored: (note: { title: string; content: string }) => void;
+  }) => (
+    <div data-testid="version-history-drawer">
+      {noteId} / {open ? 'open' : 'closed'}
+      <button
+        type="button"
+        onClick={() => onRestored({ title: 'Restored title', content: '<p>restored</p>' })}
+      >
+        Simulate Restore
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('../../../src/features/notes/components/TagBar', () => ({
   TagBar: ({ tags }: { tags: { name: string }[] }) => (
     <div data-testid="tag-bar">{tags.map((tag) => tag.name).join(',')}</div>
   ),
 }));
 
+const noteEditorSetContentMock = vi.fn();
 vi.mock('../../../src/features/notes/components/NoteEditor', () => ({
-  NoteEditor: ({ initialContent }: { initialContent: string }) => (
-    <div data-testid="note-editor">{initialContent}</div>
+  NoteEditor: forwardRef<{ setContent: (html: string) => void }, { initialContent: string }>(
+    function NoteEditor({ initialContent }, ref) {
+      useImperativeHandle(ref, () => ({ setContent: noteEditorSetContentMock }), []);
+      return <div data-testid="note-editor">{initialContent}</div>;
+    },
   ),
 }));
 
@@ -97,7 +131,7 @@ describe('EditorPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/new');
 
@@ -113,7 +147,7 @@ describe('EditorPage', () => {
       isLoading: true,
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/n1');
 
@@ -126,7 +160,7 @@ describe('EditorPage', () => {
       isLoading: false,
       isError: true,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/does-not-exist');
 
@@ -139,7 +173,7 @@ describe('EditorPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/n1');
 
@@ -156,7 +190,7 @@ describe('EditorPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
     const forceSave = vi.fn();
-    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave, syncBaseline: vi.fn() });
 
     renderAt('/notes/n1');
     fireEvent.keyDown(window, { key: 's', ctrlKey: true });
@@ -170,7 +204,7 @@ describe('EditorPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/new');
 
@@ -186,7 +220,7 @@ describe('EditorPage', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useNoteQuery>);
-    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn() });
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn(), syncBaseline: vi.fn() });
 
     renderAt('/notes/n1');
 
@@ -194,5 +228,54 @@ describe('EditorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
     expect(screen.getByTestId('share-modal')).toHaveTextContent('n1 / open');
+  });
+
+  it('clicking History opens VersionHistoryDrawer for the current note (AB-1015)', () => {
+    vi.mocked(useNoteQuery).mockReturnValue({
+      data: { note: sampleNote },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useNoteQuery>);
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn(), syncBaseline: vi.fn() });
+
+    renderAt('/notes/n1');
+
+    expect(screen.getByTestId('version-history-drawer')).toHaveTextContent('n1 / closed');
+    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+
+    expect(screen.getByTestId('version-history-drawer')).toHaveTextContent('n1 / open');
+  });
+
+  it('does not offer History for a brand-new, unsaved note (Scenario 2)', () => {
+    vi.mocked(useNoteQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useNoteQuery>);
+    vi.mocked(useAutosave).mockReturnValue({ status: 'idle', forceSave: vi.fn(), syncBaseline: vi.fn() });
+
+    renderAt('/notes/new');
+
+    expect(screen.queryByRole('button', { name: 'History' })).not.toBeInTheDocument();
+  });
+
+  it('a restore from the drawer updates the draft and pushes the content into the live editor (plan.md Decision 1)', () => {
+    vi.mocked(useNoteQuery).mockReturnValue({
+      data: { note: sampleNote },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useNoteQuery>);
+    const syncBaseline = vi.fn();
+    vi.mocked(useAutosave).mockReturnValue({ status: 'saved', forceSave: vi.fn(), syncBaseline });
+
+    renderAt('/notes/n1');
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate Restore' }));
+
+    expect(screen.getByTestId('action-header')).toHaveTextContent('Restored title');
+    expect(screen.getByTestId('note-editor')).toHaveTextContent('restored');
+    expect(syncBaseline).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Restored title', content: '<p>restored</p>' }),
+    );
+    expect(noteEditorSetContentMock).toHaveBeenCalledWith('<p>restored</p>');
   });
 });
