@@ -177,7 +177,7 @@ describe('useDeleteNoteMutation', () => {
     vi.clearAllMocks();
   });
 
-  it('deletes a note and invalidates the notes/tags list caches', async () => {
+  it('deletes a note and invalidates the notes/tags/shares list caches', async () => {
     vi.mocked(deleteNote).mockResolvedValue({ message: 'Note deleted successfully.' });
     const { wrapper, queryClient } = createWrapperWithClient();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -189,5 +189,8 @@ describe('useDeleteNoteMutation', () => {
     expect(deleteNote).toHaveBeenCalledWith('n1');
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['notes', 'list'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['tags', 'list'] });
+    // BR-014: soft-delete auto-revokes the note's share link server-side, so the Share dialog's
+    // cached list must be invalidated too or it keeps showing the now-dead link (AB-1016 finding).
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shares', 'list'] });
   });
 });

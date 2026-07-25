@@ -1,18 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { uniqueEmail, loginViaUi } from './helpers';
 
 const PASSWORD = 'E2ePass!234';
-
-function uniqueEmail(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-async function loginViaUi(page: import('@playwright/test').Page, email: string, password: string): Promise<void> {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL('/');
-}
 
 test.describe('Note Editor', () => {
   // NOTE: `useAuthStore` (AB-1010) holds tokens in memory only, with no localStorage/cookie
