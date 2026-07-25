@@ -296,6 +296,28 @@ describe('useAutosave', () => {
     await waitFor(() => expect(result.current.status).toBe('saved'));
   });
 
+  it('syncBaseline resyncs the dirty-check baseline so a restore does not trigger a redundant autosave (AB-1015)', () => {
+    let draft: EditorDraft = { title: 'Existing', content: '<p>v1</p>', tagIds: [] };
+
+    const { result, rerender } = renderHook(
+      () => useAutosave({ id: 'n1', isNew: false, draft, ready: true, onCreated: vi.fn() }),
+      { wrapper: createWrapper() },
+    );
+
+    const restoredDraft: EditorDraft = { title: 'Existing', content: '<p>restored</p>', tagIds: [] };
+    draft = restoredDraft;
+    act(() => {
+      result.current.syncBaseline(restoredDraft);
+    });
+    rerender();
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(updateNote).not.toHaveBeenCalled();
+  });
+
   it('still detects a real edit made right after an existing note finishes loading', async () => {
     vi.mocked(updateNote).mockResolvedValue({ note: sampleNote });
     let draft: EditorDraft = { title: '', content: '', tagIds: [] };

@@ -4,9 +4,11 @@ import type { NoteResponse, NoteTagRef } from '@note-app/shared';
 import { ActionHeader } from '../features/notes/components/ActionHeader';
 import { TagBar } from '../features/notes/components/TagBar';
 import { NoteEditor } from '../features/notes/components/NoteEditor';
+import type { NoteEditorHandle } from '../features/notes/components/NoteEditor';
 import { EditorSkeleton } from '../features/notes/components/EditorSkeleton';
 import { NoteNotFoundState } from '../features/notes/components/NoteNotFoundState';
 import { ShareModal } from '../features/share/components/ShareModal';
+import { VersionHistoryDrawer } from '../features/versions/components/VersionHistoryDrawer';
 import { useNoteQuery } from '../features/notes/notes.hooks';
 import { useAutosave } from '../features/notes/useAutosave';
 import { NEW_NOTE_ID } from '../features/notes/notes.constants';
@@ -25,8 +27,10 @@ export function EditorPage() {
   const [draft, setDraft] = useState<EditorDraft>({ title: '', content: '', tagIds: [] });
   const [tags, setTags] = useState<NoteTagRef[]>([]);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const seededRef = useRef(false);
   const moreMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const noteEditorRef = useRef<NoteEditorHandle>(null);
 
   // Seeds local draft/tags exactly once — from a blank slate for a new note, or from the loaded
   // note for an existing one. Guarded by `seededRef` so a later background refetch (e.g. once
@@ -68,7 +72,25 @@ export function EditorPage() {
   );
 
   const ready = isNew || seededRef.current;
-  const { status, errorMessage, forceSave } = useAutosave({ id, isNew, draft, ready, onCreated: handleCreated });
+  const { status, errorMessage, forceSave, syncBaseline } = useAutosave({
+    id,
+    isNew,
+    draft,
+    ready,
+    onCreated: handleCreated,
+  });
+
+  // The drawer traps focus while open, so the editor can't receive input meanwhile — `draft` is
+  // guaranteed unchanged between opening it and a restore completing, making this closure safe.
+  const handleRestored = useCallback(
+    (note: NoteResponse) => {
+      const nextDraft = { ...draft, title: note.title, content: note.content };
+      setDraft(nextDraft);
+      syncBaseline(nextDraft);
+      noteEditorRef.current?.setContent(note.content);
+    },
+    [draft, syncBaseline],
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
@@ -121,18 +143,28 @@ export function EditorPage() {
         canDelete={!isNew}
         autoFocusTitle={isNew}
         onShare={isNew ? undefined : () => setShareModalOpen(true)}
+        onHistory={isNew ? undefined : () => setHistoryDrawerOpen(true)}
         onMoreMenuTriggerRef={(element) => {
           moreMenuTriggerRef.current = element;
         }}
       />
       <TagBar tags={tags} onChange={handleTagsChange} />
-      <NoteEditor initialContent={draft.content} onContentChange={handleContentChange} />
+      <NoteEditor ref={noteEditorRef} initialContent={draft.content} onContentChange={handleContentChange} />
       {!isNew && (
         <ShareModal
           noteId={id}
           open={shareModalOpen}
           onOpenChange={setShareModalOpen}
           returnFocusRef={moreMenuTriggerRef}
+        />
+      )}
+      {!isNew && (
+        <VersionHistoryDrawer
+          noteId={id}
+          open={historyDrawerOpen}
+          onOpenChange={setHistoryDrawerOpen}
+          returnFocusRef={moreMenuTriggerRef}
+          onRestored={handleRestored}
         />
       )}
     </div>

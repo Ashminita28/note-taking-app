@@ -22,6 +22,10 @@ export interface UseAutosaveResult {
   /** Set alongside `status === 'error'` when there's a specific reason to surface (size limit, server message). */
   errorMessage?: string;
   forceSave: () => void;
+  /** Escape hatch for a deliberate external content replacement (AB-1015 version restore) that
+   *  isn't itself a fresh edit to autosave — resyncs the dirty-check baseline so it doesn't read
+   *  as a pending change and schedule a redundant, duplicate-version-creating autosave `PATCH`. */
+  syncBaseline: (next: EditorDraft) => void;
 }
 
 function sameDraft(a: EditorDraft, b: EditorDraft): boolean {
@@ -179,5 +183,9 @@ export function useAutosave({ id, isNew, draft, ready, onCreated }: UseAutosaveO
     }
   }, [draft, performSave]);
 
-  return { status, errorMessage, forceSave };
+  const syncBaseline = useCallback((next: EditorDraft) => {
+    lastSavedRef.current = next;
+  }, []);
+
+  return { status, errorMessage, forceSave, syncBaseline };
 }

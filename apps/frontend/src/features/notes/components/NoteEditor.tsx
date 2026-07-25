@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { buildEditorExtensions } from '../tiptap-extensions';
 import { TipTapToolbar } from './TipTapToolbar';
@@ -11,8 +11,18 @@ interface NoteEditorProps {
   onContentChange: (html: string) => void;
 }
 
+/** Imperative escape hatch for deliberate full-content replacement (e.g. AB-1015 version restore)
+ *  that must bypass the `initialContent`-ignored-after-mount rule above without remounting the
+ *  editor or disturbing cursor/undo state for normal typing. */
+export interface NoteEditorHandle {
+  setContent: (html: string) => void;
+}
+
 /** Hosts the TipTap instance (SDS §23.1). Never keyed by note id — see plan.md Decision 1. */
-export function NoteEditor({ initialContent, onContentChange }: NoteEditorProps) {
+export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor(
+  { initialContent, onContentChange },
+  ref,
+) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
 
   const editor = useEditor(
@@ -24,6 +34,16 @@ export function NoteEditor({ initialContent, onContentChange }: NoteEditorProps)
       },
     },
     [],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setContent: (html: string) => {
+        editor?.commands.setContent(html);
+      },
+    }),
+    [editor],
   );
 
   if (!editor) {
@@ -64,4 +84,4 @@ export function NoteEditor({ initialContent, onContentChange }: NoteEditorProps)
       <EditorContent editor={editor} className="flex-1 p-4 focus:outline-none [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none" />
     </div>
   );
-}
+});
